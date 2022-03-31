@@ -8,20 +8,21 @@
 using std::to_string;
 using std::string;
 using std::uint64_t;
+using std::uint32_t;
 
 #define set_bit(bitboard, square) (bitboard |= (1ULL << square))
 #define pop_bit(bitboard, square) (get_bit(bitboard, square) ? bitboard ^= (1ULL << square) : 0)
 #define get_bit(bitboard, square) (bitboard & (1ULL << square))
 
 //board
-char Board[64] = {'r','n','b','q','k','b','n','r',
-  								'p','p','p','p','p','p','p','p',
+char Board[64] = {' ',' ',' ',' ',' ',' ',' ',' ',
   								' ',' ',' ',' ',' ',' ',' ',' ',
   								' ',' ',' ',' ',' ',' ',' ',' ',
   								' ',' ',' ',' ',' ',' ',' ',' ',
+  								' ',' ',' ','K',' ','n',' ','q',
   								' ',' ',' ',' ',' ',' ',' ',' ',
-  								'P','P','P','P','P','P','P','P',
-  								'R','N','B','Q','K','B','N','R'};
+  								' ',' ',' ',' ',' ',' ',' ',' ',
+  								' ',' ',' ',' ',' ',' ',' ',' '};
 
 //In which a1=0, h1=7, a8=56, and h8=63
 enum enumSquare {
@@ -636,85 +637,6 @@ enum Piece_Types {P, N, B, R, Q, K, p, n, b, r, q, k};
 enum colors{WHITE, BLACK, BOTH};
 uint64_t Bitboards [12];
 
-//Occupancies
-uint64_t occupancies[3];
-void update_occupancies(){
-	//Update Bitboard array (really ugly code)
-	Bitboards [0]=WP;
-	Bitboards [1]=WN;
-	Bitboards [2]=WB;
-	Bitboards [3]=WR;
-	Bitboards [4]=WQ;
-	Bitboards [5]=WK;
-	Bitboards [6]=BP;
-	Bitboards [7]=BN;
-	Bitboards [8]=BB;
-	Bitboards [9]=BR;
-	Bitboards[10]=BQ;
-	Bitboards[11]=BK;
-	uint64_t to_occupancy1 = 0ULL;
-	uint64_t to_occupancy2 = 0ULL;
-	uint64_t to_occupancy3 = 0ULL;
-	for(int i=0; i<6; i++){
-		to_occupancy1 |= Bitboards[i];
-		to_occupancy2 |= Bitboards[i+6];
-		to_occupancy3 |= to_occupancy1 | to_occupancy2;}
-	occupancies[0] = to_occupancy1;
-	occupancies[1] = to_occupancy2;
-	occupancies[2] = to_occupancy3;}
-
-
-class Board_States{
-	public:	
-	//Is attacked by? 
-	//'Side' being the side being aggressor and the remaining side being the victim
-	bool is_square_attacked(int square, int Side){
-		uint64_t attacked_bitboard = 1 << square;
-		//Pawns
-		uint64_t pawns = Bitboards[Side * 6];
-		if (Pawn_Attacks[Side ^ 1][square] & pawns) return true;
-		//Knights
-		uint64_t knights = Bitboards[1 + Side * 6];
-		if (Knight_Attacks(attacked_bitboard, 0) & knights) return true;
-		//Bishops and Queens
-		uint64_t bishopqueens = Bitboards[2 + Side * 6] | Bitboards[4 + Side * 6];
-		if (get_bishop_attacks(square, occupancies[BOTH]) & bishopqueens) return true;
-		//Rooks and Queens
-		uint64_t rookqueens = Bitboards[3 + Side * 6] | Bitboards[4 + Side * 6];
-		if (get_rook_attacks(square, occupancies[BOTH]) & rookqueens) return true;
-  	//Kings
-			uint64_t kings = Bitboards[5 + Side * 6];
-		if (King_Mask[square] & kings) return true;
-		return false;}
-
-	//Attack map function. 'side' is the aggressor
-	uint64_t attack_map(int side){
-		uint64_t mapped_attacks = 0ULL;
-		uint64_t attacked_bitboard;
-		int null;
-		//treat queens as a seperate entity
-		for(int square=0; square<64; square++){
-			attacked_bitboard=1ULL << square;			
-			mapped_attacks |= get_bit(Bitboards[side * 6], square) ? Pawn_Attacks[side][square]/*Pawns*/ 
-			: get_bit(Bitboards[1 + side * 6], square) ?Knight_Attacks(attacked_bitboard, 0)/*Knights*/ 
-			: get_bit(Bitboards[2 + side * 6], square) ? get_bishop_attacks(square, occupancies[BOTH])/*Bishops*/ 
-			: get_bit(Bitboards[3 + side * 6], square) ? get_rook_attacks(square, occupancies[BOTH])/*Rooks*/ 
-			: get_bit(Bitboards[4 + side * 6], square) ? get_queen_attacks(square, occupancies[BOTH])
-			: get_bit(Bitboards[5 + side * 6], square) ? King_Mask[square] /*King*/ 
-			: null=0;}
-		return mapped_attacks;}
-
-	/*The absolute pins to return map of pins on kings
-	https://chess.stackexchange.com/questions/25137/chess-engine-generate-a-bitboard-		of-pinned-pieces*/
-	//Definitely not done
-	uint64_t absolute_pins_vertical(int rooksq, int side){
-		uint64_t vertical_attackers = occupancies[BOTH];
-		if(vertical_attackers == 0){
-    	return 0;}
-		uint64_t bb_pinners = get_queen_attacks(0, 0) & occupancies[side];
-		return 0;}
-};
-
 //make moves and undo moves
 //Castling rights
 int Castle_White = 2;
@@ -735,6 +657,86 @@ uint64_t pWhite_Rooks;
 uint64_t pBlack_Rooks;
 uint64_t pWhite_Kings;
 uint64_t pBlack_Kings;
+
+//Occupancies
+uint64_t occupancies[3];
+void update_occupancies(){
+	//Update Bitboard array (really ugly code)
+	Bitboards [0]=WP;
+	Bitboards [1]=WN;
+	Bitboards [2]=WB;
+	Bitboards [3]=WR;
+	Bitboards [4]=WQ;
+	Bitboards [5]=WK;
+	Bitboards [6]=BP;
+	Bitboards [7]=BN;
+	Bitboards [8]=BB;
+	Bitboards [9]=BR;
+	Bitboards[10]=BQ;
+	Bitboards[11]=BK;
+	uint64_t to_occupancy1 = 0ULL;
+	uint64_t to_occupancy2 = 0ULL;
+	uint64_t to_occupancy3 = 0ULL;
+	for(int i=6; i>0; i--){
+		to_occupancy1 |= Bitboards[i];
+		to_occupancy2 |= Bitboards[i+6];
+		to_occupancy3 |= to_occupancy1 | to_occupancy2;}
+	occupancies[0] = to_occupancy1;
+	occupancies[1] = to_occupancy2;
+	occupancies[2] = to_occupancy3;}
+
+
+class Board_States{
+	private:
+		//Screams internally
+		uint64_t W_K_Castle = 0x70;
+		uint64_t W_Q_Castle = 0x1c;
+		uint64_t B_K_Castle = 0x7000000000000000;
+		uint64_t B_Q_Castle = 0x1c00000000000000;
+		uint64_t W_R = 0x81;
+		uint64_t B_R = 0x8100000000000000;
+	public:
+	//Attack map function. 'side' is the aggressor
+	//Insert branchless programming
+	uint64_t attack_map(int side){
+		uint64_t mapped_attacks = 0ULL;
+		uint64_t attacked_bitboard;
+		//treated queens as a seperate entity
+		for(int square=0; square<64; square++){
+			attacked_bitboard=1ULL << square;			
+			mapped_attacks |= (get_bit(Bitboards[side * 6], square) > 0) * Pawn_Attacks[side][square] + (get_bit(Bitboards[side * 6], square) <= 0) * 0; /*Pawns*/
+			mapped_attacks |= (get_bit(Bitboards[1 + side * 6], square) > 0) * Knight_Attacks(attacked_bitboard, 0) + (get_bit(Bitboards[1 + side * 6], square) <= 0) * 0; /*Knights*/
+			mapped_attacks |= (get_bit(Bitboards[2 + side * 6], square) > 0) * get_bishop_attacks(square, occupancies[BOTH]) + (get_bit(Bitboards[2 + side * 6], square) <= 0) * 0; /*Bishops*/
+			mapped_attacks |= (get_bit(Bitboards[3 + side * 6], square) > 0)* get_rook_attacks(square, occupancies[BOTH]) + (get_bit(Bitboards[3 + side * 6], square) <= 0) * 0; /*Rooks*/
+			mapped_attacks |= (get_bit(Bitboards[4 + side * 6], square) > 0) * get_queen_attacks(square, occupancies[BOTH]) + (get_bit(Bitboards[4 + side * 6], square) <= 0) * 0; /*Queens*/
+			mapped_attacks |= (get_bit(Bitboards[5 + side * 6], square) > 0) * King_Mask[square] + (get_bit(Bitboards[5 + side * 6], square) <= 0) * 0;}
+		return mapped_attacks;}
+
+	/*The absolute pins to return map of pins on kings
+	https://chess.stackexchange.com/questions/25137/chess-engine-generate-a-bitboard-of-pinned-pieces*/
+	//Definitely not done
+	uint64_t absolute_pins_vertical(int rooksq, int side){
+		uint64_t vertical_attackers = occupancies[BOTH];
+		if(vertical_attackers == 0){
+    	return 0;}
+		uint64_t bb_pinners = get_queen_attacks(0, 0) & occupancies[side];
+		return 0;}
+	//castling 
+	bool can_castle(int side){
+		//if king has moved, automatically return zero
+		//if it sees that rook positions are different from suposed starting position, prune that possibility away
+		//If there is any piece between the castling map, also remove possibility
+		//If there attacks from other side on the squares, remove particular 
+		uint64_t attacks = attack_map(side ^ 1);
+		
+	}
+	
+};
+
+//encode moves
+inline uint32_t encode_moves(int sourcesq, int targetsq, int piece, int promote, int capture, int double_push, int enpassant, int castle){
+	uint32_t return_var = sourcesq | (targetsq << 6) | (piece << 12) | (promote << 16) | (capture << 20) | (double_push << 21) | (enpassant << 22) | (castle << 23);
+	return return_var;}
 
 //Board move history (Don't know what to refer to it as)
 std::vector <int> foo;
@@ -781,4 +783,7 @@ int main() {
 	std::cout<<"\n"<<test1;
 	Print.Board();
 	Print.Test_Board(rook_masks[d4]);
-	Print.Test_Board(board.attack_map(BLACK));}
+	Print.Test_Board(board.attack_map(BLACK));
+	int a = 6;
+	int *b = &a;
+	std::cout<<*b;}

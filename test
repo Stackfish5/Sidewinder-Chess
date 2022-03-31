@@ -9,7 +9,7 @@ char Board[64] = {'r','n','b','q','k','b','n','r',
   								'P','P','P','P','P','P','P','P',
   								'R','N','B','Q','K','B','N','R'};
 
-Empty Board
+Empty Board for custom positions (because I'm to lazy to create parse FEN string function)
 
 char Board[64] = {' ',' ',' ',' ',' ',' ',' ',' ',
   								' ',' ',' ',' ',' ',' ',' ',' ',
