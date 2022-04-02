@@ -45,22 +45,22 @@ uint64_t Bitboards [12];
 uint64_t occupancies[3];
 void update_occupancies(){
 	//Update Bitboard array (really ugly code)
-	Bitboards [0]=WP;
-	Bitboards [1]=WN;
-	Bitboards [2]=WB;
-	Bitboards [3]=WR;
-	Bitboards [4]=WQ;
-	Bitboards [5]=WK;
-	Bitboards [6]=BP;
-	Bitboards [7]=BN;
-	Bitboards [8]=BB;
-	Bitboards [9]=BR;
-	Bitboards[10]=BQ;
-	Bitboards[11]=BK;
+	Bitboards [0] = WP;
+	Bitboards [1] = WN;
+	Bitboards [2] = WB;
+	Bitboards [3] = WR;
+	Bitboards [4] = WQ;
+	Bitboards [5] = WK;
+	Bitboards [6] = BP;
+	Bitboards [7] = BN;
+	Bitboards [8] = BB;
+	Bitboards [9] = BR;
+	Bitboards[10] = BQ;
+	Bitboards[11] = BK;
 	uint64_t to_occupancy1 = 0ULL;
 	uint64_t to_occupancy2 = 0ULL;
 	uint64_t to_occupancy3 = 0ULL;
-	for(int i=6; i>0; i--){
+	for(int i=5; i>0; i--){
 		to_occupancy1 |= Bitboards[i];
 		to_occupancy2 |= Bitboards[i+6];
 		to_occupancy3 |= to_occupancy1 | to_occupancy2;}
@@ -321,7 +321,9 @@ class Legal_Moves{
 		int target_square;
 		uint64_t en_passant_attacks;
 		//if there is a pawn on the possible en passant rank
-		if((Bitboards[(side ^ 1) * 6] & en_passant_ranks[side])<1){return 0;}
+		if((Bitboards[(side ^ 1) * 6] & en_passant_ranks[side])<1){
+			return 0;
+		}
 		//most recent move
 		int most_recent_move = history.at(history.size() - 1);
 		//make sure it is a double pawn push
@@ -335,7 +337,8 @@ class Legal_Moves{
 			//gets pawns with posssible en_passant attack
 			en_passant_attacks = Pawn_Attacks[side ^ 1] [target_square] & Bitboards[side * 6];
 		} else {
-			return 0;}
+			return 0;
+		}
 	return en_passant_attacks;
 	}
 };
