@@ -4,6 +4,28 @@
 
 #include "attacks.h"
 
+//Rectangular lookup tables
+uint64_t Rect_Lookup [64] [64]; //[sq1] [sq2]
+
+//Initialization purposes
+ uint64_t inBetween(int sq1, int sq2) {
+   const  uint64_t m1   = -1;
+   const  uint64_t a2a7 = 0x0001010101010100;
+   const  uint64_t b2g7 = 0x0040201008040200;
+   const  uint64_t h1b7 = 0x0002040810204080;
+    uint64_t btwn, line, rank, file;
+
+   btwn  = (m1 << sq1) ^ (m1 << sq2);
+   file  =   (sq2 & 7) - (sq1   & 7);
+   rank  =  ((sq2 | 7) -  sq1) >> 3 ;
+   line  =      (   (file  &  7) - 1) & a2a7;
+   line += 2 * ((   (rank  &  7) - 1) >> 58);
+   line += (((rank - file) & 15) - 1) & b2g7;
+   line += (((rank + file) & 15) - 1) & h1b7;
+   line *= btwn & -btwn;
+   return line & btwn;
+}
+
 // init slider piece's attack tables
 void init_sliders_attacks(int bishop){
     // loop over 64 board squares
@@ -32,13 +54,19 @@ void init_sliders_attacks(int bishop){
             // init magic index
             int magic_index = (occupancy * RMagic[square]) >> (64 - rook_relevant_bits[square]);
             // init bishop attacks
-            Rook_Attacks[square][magic_index] = rook_attacks_on_the_fly(square, occupancy);}}}}
+            Rook_Attacks[square][magic_index] = rook_attacks_on_the_fly(square, occupancy);}}}
 
-//Directions for pins
-enum directions {N_, NE, E_, SE, S_, SW, W_, NW};
+	//rectangular lookup table for pins
+	for(int sq1=0; sq1<64; sq1++){
+		for(int sq2=0; sq2<64; sq2++){
+			Rect_Lookup [sq1] [sq2] = inBetween(sq1, sq2);
+		}
+	}}
 
 enum Piece_Types {P, N, B, R, Q, K, p, n, b, r, q, k};
+
 enum colors{WHITE, BLACK, BOTH};
+
 uint64_t Bitboards [12];
 
 //Occupancies
@@ -85,11 +113,7 @@ class Legal_Moves{
 
 	const uint64_t en_passant_ranks [2] = {0xff00000000, 0xff000000};
 
-	//for pins
-	const int important_slider [8] = {1, 1, 1, 0, 0, 0, 0, 1};
-
 	public:
-	//Piece Masks for pins
 	const uint64_t masks [8] [64] /*[direction] [square]*/ = {
 		{0x101010101010100, 0x202020202020200, 0x404040404040400, 
 	0x808080808080800, 0x1010101010101000, 0x2020202020202000, 
@@ -211,6 +235,7 @@ class Legal_Moves{
 	0x0, 0x0, 0x0}/*North West*/
 	};
 
+
 	//Board move history 
 	std::vector <int> history;
 
@@ -268,30 +293,8 @@ class Legal_Moves{
 			mapped_attacks |= (get_bit(Bitboards[5 + side * 6], square) > 0) * King_Mask[square] + (get_bit(Bitboards[5 + side * 6], square) <= 0) * 0;}
 		return mapped_attacks;}
 
-	/*The absolute pins to return map of pins on kings*/
-	//Definitely not done
-	uint64_t absolute_pins(int kingsq, int side){
-		//slider pieces with possible pin
-		uint64_t pin_pieces = (Bitboards[2 + side * 6] | Bitboards[3 + side * 6] | Bitboards[4 + side * 6]) & get_queen_attacks(kingsq,0);
-		//returned bitboard
-		uint64_t pin_attacks=0ULL;
-		for(int direction = 0; direction<8; direction++){
-			//pin mask?
-			uint64_t ray = masks[direction] [kingsq];
-			uint64_t pinned_ray_piece = ray & pin_pieces;
-			//The piece that can pin (in case of battery)
-			uint64_t pin_initiators = (important_slider[direction] > 0) * get_ls1b_index(pinned_ray_piece) + (important_slider[direction] == 0) * get_ms1b_index(pinned_ray_piece);
-			if(pin_initiators){
-				//find piece pinned to king
-				uint64_t pinned_piece = masks[8-direction][(int)log2(pin_initiators)] & ~(1ULL<<kingsq);
-				if (one_single_bit(pinned_piece)){
-					pin_attacks |= ray;
-				}
-			}
-		}
-		return pin_attacks;}
-	//castling 
 	
+	//castling 
 	//can castle kingside?
 	bool castle_kingside(int side){
 		//If king moved, set castle white or black to zero
@@ -339,7 +342,13 @@ class Legal_Moves{
 		} else {
 			return 0;
 		}
-	return en_passant_attacks;
+	return (en_passant_attacks > 0) * (1ULL << target_square);
+	}
+
+	//Generate all legal moves for position
+	//All legal move generation except for en passant
+	void legal_moves(){
+		return 0;
 	}
 };
 

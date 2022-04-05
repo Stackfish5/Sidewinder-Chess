@@ -1,9 +1,18 @@
 #include <iostream>
 #include <cmath>
 
-#include "Board.h"
 
 using std::string;
+
+//board
+char Board[64] = {' ',' ',' ','Q',' ',' ',' ',' ',
+  								' ',' ',' ','p',' ',' ',' ',' ',
+  								' ','Q',' ',' ',' ','Q',' ',' ',
+  								' ',' ','p',' ','p',' ',' ',' ',
+  								'Q','p',' ','k',' ','p','Q',' ',
+  								' ',' ','p','P','p',' ',' ',' ',
+  								' ',' ',' ',' ',' ','Q',' ',' ',
+  								'Q',' ',' ','Q',' ',' ',' ',' '};
 
 //In which a1=0, h1=7, a8=56, and h8=63
 enum enumSquare {
@@ -114,7 +123,7 @@ uint64_t Reverse (uint64_t x) {
 	uint64_t Initialize(char chessboard[64],char type){
 		uint64_t Bit=0;
 		for(int i=0;i<64;i++){
-			Bit^=Reverse(1ull<<(63-i))*(chessboard[i]==type);}
-		return Bit;}
+			Bit^=(1ull<<(63-i))*(chessboard[i]==type);}
+		return Reverse(Bit);}
 };
 						
