@@ -5,6 +5,7 @@
 
 #include "Zobrist.h"
 #include "movegen.h"
+#include "timer.h"
 
 using std::to_string;
 using std::string;
@@ -82,7 +83,7 @@ uint64_t absolute_pins(int side, int squareOfKing){
 //Also when calculating it just test looping through all mask directions from
 //sq1 to sq2 as bitboard. if mask & bitboard == bitboard, set that direction in
 //there. Also, if none of the directions are found, return -1
-//really expensive but who cares
+//really expensive but who cares?
 //Lookup returns relative direction from sq1 to sq2
 
 int pin_direction [64] [64];
@@ -105,10 +106,30 @@ int direction(int sq1, int sq2){
 	return -1; //if there isn't a ray direction
 }
 
+//to resolve pins, use the pin_direction to find direction relative to the
+//two squares through getting king square and pinned piece square. If the 
+//result isn't -1, then find masks[direction] to get pin masks. Now get
+//pinned piece type, generate pseudo-legal moves and & them with the mask
+//to return result, legal moves for pinned piece!
+
+//Bit check to see the bitboard a square belongs to
+int bitcheck(int square){
+	uint64_t bit_check = 1ULL << square;
+	for (int i = 0; /* NO TEST*/ ; ++i){
+		if (Bitboards[i] & bit_check) return i;
+	}
+}
+
+//calculate pawn push into pregenerated attack tables
+//double pawn pushes can be done on the fly
+uint64_t pawn_single_push [2] [64];
+
 int main() {
 	//Initialize stuff (prep)
 	ChessBoard Print;
 	Legal_Moves board;
+	Timer time;
+	time.reset();
 	Initialize_Everything();
 	WP = Print.Initialize(Board,'P');
 	WN = Print.Initialize(Board,'N');
@@ -123,17 +144,29 @@ int main() {
 	BQ = Print.Initialize(Board,'q');
 	BK = Print.Initialize(Board,'k');
 	update_occupancies();
-
+	
+	
 	//pin directions
 	for(int sq1 = 0; sq1 < 64; sq1++){
 		for(int sq2 = 0; sq2 < 64; sq2++){
 			pin_direction[sq1][sq2] = direction(sq1, sq2);
 		}
 	}
+	//populate pawn push tables
+	for(int square = 0; square < 64; square++){
+		pawn_single_push [0] [square] = (square > 7 && square < 56) ? 1ULL << (square + 8) : 0;
+		pawn_single_push [1] [square] = (square > 7 && square < 56) ? 1ULL << (square - 8) : 0;
+	}
+	std::cout<<time.elapsed();
 	
 	Print.Board();
 	board.history.push_back(encode_moves(d7, d5, p, 0, 0, 1, 0, 0));
 	Print.Test_Board(xrayBishopAttacks(d4, 1) & (Bitboards[B] | Bitboards[Q]));
 	Print.Test_Board(absolute_pins(BLACK, d4));
 	Print.Test_Board(xrayRookAttacks(d4, BLACK));
-	std::cout<<pin_direction[a1] [d];}
+	std::cout<<pin_direction[a1] [d4]<<std::endl;
+	std::cout<<bitcheck(d4)<<std::endl;
+	time.reset();
+	Print.Test_Board(board.masks[1] [d4]);
+	std::cout<< time.elapsed();
+	Print.Test_Board(pawn_single_push[BLACK] [h7]);}

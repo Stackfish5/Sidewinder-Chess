@@ -67,7 +67,7 @@ enum Piece_Types {P, N, B, R, Q, K, p, n, b, r, q, k};
 
 enum colors{WHITE, BLACK, BOTH};
 
-uint64_t Bitboards [12];
+uint64_t Bitboards [13];
 
 //Occupancies
 uint64_t occupancies[3];
@@ -85,6 +85,7 @@ void update_occupancies(){
 	Bitboards [9] = BR;
 	Bitboards[10] = BQ;
 	Bitboards[11] = BK;
+	Bitboards[12] = ~uint64_t(0);
 	uint64_t to_occupancy1 = 0ULL;
 	uint64_t to_occupancy2 = 0ULL;
 	uint64_t to_occupancy3 = 0ULL;
