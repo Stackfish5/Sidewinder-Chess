@@ -78,8 +78,6 @@ uint64_t set_occupancy(int index, int bits_in_mask, uint64_t attack_mask){
     }// return occupancy map
     return occupancy;}
 
-
-
 //Look-up tables and some preperation
 uint64_t bishop_masks[64];
 uint64_t rook_masks	 [64];

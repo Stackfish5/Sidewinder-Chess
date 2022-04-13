@@ -8,7 +8,7 @@
 uint64_t Rect_Lookup [64] [64]; //[sq1] [sq2]
 
 //Initialization purposes
- uint64_t inBetween(int sq1, int sq2) {
+uint64_t inBetween(int sq1, int sq2) {
    const  uint64_t m1   = -1;
    const  uint64_t a2a7 = 0x0001010101010100;
    const  uint64_t b2g7 = 0x0040201008040200;
@@ -67,25 +67,11 @@ enum Piece_Types {P, N, B, R, Q, K, p, n, b, r, q, k};
 
 enum colors{WHITE, BLACK, BOTH};
 
-uint64_t Bitboards [13];
+
 
 //Occupancies
 uint64_t occupancies[3];
 void update_occupancies(){
-	//Update Bitboard array (really ugly code)
-	Bitboards [0] = WP;
-	Bitboards [1] = WN;
-	Bitboards [2] = WB;
-	Bitboards [3] = WR;
-	Bitboards [4] = WQ;
-	Bitboards [5] = WK;
-	Bitboards [6] = BP;
-	Bitboards [7] = BN;
-	Bitboards [8] = BB;
-	Bitboards [9] = BR;
-	Bitboards[10] = BQ;
-	Bitboards[11] = BK;
-	Bitboards[12] = ~uint64_t(0);
 	uint64_t to_occupancy1 = 0ULL;
 	uint64_t to_occupancy2 = 0ULL;
 	uint64_t to_occupancy3 = 0ULL;
@@ -104,18 +90,64 @@ int Castle_White_Queenside = 1;
 int Castle_Black_Kingside = 1;
 int Castle_Black_Queenside = 1;
 
-class Legal_Moves{
-	private:
-	const uint64_t rook_positions [4] = {0x1, 0x80, 0x100000000000000, 0x8000000000000000};
+//promoting pieces
+char promoted_pieces[] = {
+    [Q] = 'q',
+    [R] = 'r',
+    [B] = 'b',
+    [N] = 'n',
+    [q] = 'q',
+    [r] = 'r',
+    [b] = 'b',
+    [n] = 'n'
+};
 
-	const uint64_t castle_constants [4] = {0x70, 0x1c, 0x7000000000000000, 0x1c00000000000000};
+//pretty printing stuff (idk where to put it)
+string coordinates [64] = {
+	"a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
+  "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
+  "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3",
+  "a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4",
+  "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5",
+  "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6",
+  "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
+  "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"
+};
 
-	const uint64_t castle_king_constants [2] = {0x10, 0x1000000000000000};
+//encode moves
+inline uint32_t encode_moves(int sourcesq, int targetsq, int piece, int promote, int capture, int double_push, int enpassant, int castle){
+	uint32_t return_var = sourcesq | (targetsq << 6) | (piece << 12) | (promote << 16) | (capture << 20) | (double_push << 21) | (enpassant << 22) | (castle << 23);
+	return return_var;}
 
-	const uint64_t en_passant_ranks [2] = {0xff00000000, 0xff000000};
+// move list structure
+typedef struct {
+    // moves
+    int moves[256];
+    
+    // move count
+    int count;
+} moves;
 
+class Pins{
 	public:
-	const uint64_t masks [8] [64] /*[direction] [square]*/ = {
+	inline uint64_t xrayRookAttacks(int rookSq, int side) {
+  	uint64_t blockers = occupancies[BOTH] & rook_masks[rookSq];
+		uint64_t occ = occupancies[side];
+		uint64_t attacks = get_rook_attacks(rookSq, occ);
+  	blockers &= attacks;
+  	return attacks ^ get_rook_attacks(rookSq, occ ^ blockers);
+	}
+
+	inline uint64_t xrayBishopAttacks(int bishopSq, int side) {
+  	uint64_t blockers = occupancies[BOTH] & bishop_masks[bishopSq];
+		uint64_t occ = occupancies[side];
+		uint64_t attacks = get_bishop_attacks(bishopSq, occ);
+  	blockers &= attacks;
+  	return attacks ^ get_bishop_attacks(bishopSq, occ ^ blockers);
+	}
+	
+	//ray masks for pins (index 9 is buffer if there aren't any pins)
+	const uint64_t masks [9] [64] /*[direction] [square]*/ = {
 		{0x101010101010100, 0x202020202020200, 0x404040404040400, 
 	0x808080808080800, 0x1010101010101000, 0x2020202020202000, 
 	0x4040404040404000, 0x8080808080808000, 0x101010101010000, 
@@ -233,16 +265,119 @@ class Legal_Moves{
 	0x2040000000000000, 0x0, 0x100000000000000, 0x200000000000000, 
 	0x400000000000000, 0x800000000000000, 0x1000000000000000, 
 	0x2000000000000000, 0x4000000000000000, 0x0, 0x0, 0x0, 0x0, 0x0, 
-	0x0, 0x0, 0x0}/*North West*/
+	0x0, 0x0, 0x0}/*North West*/,
+
+		{0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 
+0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 
+0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 
+0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 
+0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 
+0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 
+0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 
+0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff} /*For errors*/
 	};
 
+	//Absolute pinned pieces
+	//make it so side is the one with the pinned pieces to king
+	uint64_t absolute_pins(int side, int squareOfKing){
+		uint64_t pinned, pinner;
+		pinned = 0ULL;
+		side ^= 1;
+		pinner = xrayRookAttacks(squareOfKing, side ^ 1) & (Bitboards[R + side * 6] | Bitboards[Q + side * 6]);
+		while ( pinner ) {
+    	int sq  = get_ls1b_index(pinner);
+    	pinned |= Rect_Lookup[sq] [squareOfKing] & occupancies[side ^ 1];
+    	pinner &= pinner - 1;
+		}
+		pinner = xrayBishopAttacks(squareOfKing, side ^ 1) & (Bitboards[B + side * 6] | Bitboards[Q + side * 6]);
+  	while ( pinner ) {
+    	int sq  = get_ls1b_index(pinner);
+    	pinned |= Rect_Lookup[sq] [squareOfKing] & occupancies[side ^ 1];
+   	 pinner &= pinner - 1;
+		}
+		return pinned;
+	}
+};
+
+//direction of pins
+int pin_direction [64] [64];
+	
+int direction(int sq1, int sq2){
+	Pins pin;
+	if(sq1 == sq2) {
+		return 8; //error, not applicable
+	}
+	for(int direction = 0; direction < 8; direction++){
+		//finds ray to test on
+		uint64_t test_mask = pin.masks[direction][sq1];
+		//find square 2 as bitboard
+		uint64_t squares_bitboard = (1ULL << sq2);
+		//if 
+		if(test_mask & squares_bitboard){
+			return direction;
+		}
+	}
+	return 8; //if there isn't a ray direction
+}
+
+class double_pawn_push{
+	public:
+	uint64_t double_pawn_push_on_the_fly(int square, bool side){
+		const uint64_t Rank_4 = 0xff000000;
+		const uint64_t Rank_5 = 0xff00000000;
+		uint64_t Pawn = 1ULL << square;
+		uint64_t Empty = ~occupancies[BOTH];
+		uint64_t Pawn_Double_Push = (side == WHITE) ? (Pawn << 16) & Empty & (Empty << 8) & Rank_4 : (Pawn >> 16) & Empty & (Empty >> 8) & Rank_5;
+		return Pawn_Double_Push;
+	}
+};
+
+class Legal_Moves{
+	private:
+	const uint64_t rook_positions [4] = {0x1, 0x80, 0x100000000000000, 0x8000000000000000};
+
+	const uint64_t castle_constants [4] = {0x60, 0xc, 0x6000000000000000, 0xc00000000000000};
+
+	const uint64_t castle_king_constants [2] = {0x10, 0x1000000000000000};
+
+	const uint64_t en_passant_ranks [2] = {0xff00000000, 0xff000000};
+
+	//promotion ranks
+	const uint64_t promotion_ranks [2] = {0xff00000000000000, 0xff};
+
+	public:
+	// add move to the move list
+	static inline void add_move(moves *move_list, int move){
+    // store move
+    move_list->moves[move_list->count] = move;
+    
+    // increment move count
+    move_list->count++;
+	}
+
+	void print_move_list(moves *move_list){
+    // loop over moves within a move list
+    for (int move_count = 0; move_count < move_list->count; move_count++)
+    {
+        // init move
+        int move = move_list->moves[move_count];
+        
+        std::cout << coordinates[get_move_source(move)];
+				std::cout << coordinates[get_move_target(move)];
+				std::cout << promoted_pieces[get_move_promoted(move)] << "\n";
+        
+    }
+	// print total number of moves
+	int total_moves = move_list->count;
+  std::cout << "\nTotal number of moves: ";
+	std::cout <<move_list->count;
+}
 
 	//Board move history 
 	std::vector <int> history;
 
-	//square attacked function
+	//square attacked function (side is aggressor)
 	bool is_square_attacked(int square, int Side){
-		uint64_t attacked_bitboard = 1 << square;
 		//Pawns
 		uint64_t pawns = Bitboards[Side * 6];
 		if (Pawn_Attacks[Side ^ 1][square] & pawns) return true;
@@ -262,8 +397,7 @@ class Legal_Moves{
 
 	//Pieces that attack a square
 	uint64_t square_attackers(int square, int Side){
-		uint64_t attackers = 0;
-		uint64_t attacked_bitboard = 1 << square;
+		uint64_t attackers = 0ULL;
 		//Pawns
 		uint64_t pawns = Bitboards[Side * 6];
 		attackers |= Pawn_Attacks[Side ^ 1][square] & pawns;
@@ -294,27 +428,55 @@ class Legal_Moves{
 			mapped_attacks |= (get_bit(Bitboards[5 + side * 6], square) > 0) * King_Mask[square] + (get_bit(Bitboards[5 + side * 6], square) <= 0) * 0;}
 		return mapped_attacks;}
 
-	
+	//Almost same thing, difference is that this doesn't treat king as a blocker
+	uint64_t king_danger_squares(int side){
+		uint64_t mapped_attacks = 0ULL;
+		//remove opponent king
+		uint64_t blockers = occupancies[BOTH] ^ Bitboards[K + ((side ^ 1) * 6)];
+		//treated queens as a seperate entity
+		for(int square = 0; square < 64; square ++){
+			mapped_attacks |= (get_bit(Bitboards[side * 6], square) > 0) * Pawn_Attacks[side][square] + (get_bit(Bitboards[side * 6], square) <= 0) * 0; /*Pawns*/
+			mapped_attacks |= (get_bit(Bitboards[1 + side * 6], square) > 0) * Knight_Attacks[square] + (get_bit(Bitboards[1 + side * 6], square) <= 0) * 0; /*Knights*/
+			mapped_attacks |= (get_bit(Bitboards[2 + side * 6], square) > 0) * get_bishop_attacks(square, blockers) + (get_bit(Bitboards[2 + side * 6], square) <= 0) * 0; /*Bishops*/
+			mapped_attacks |= (get_bit(Bitboards[3 + side * 6], square) > 0)* get_rook_attacks(square, blockers) + (get_bit(Bitboards[3 + side * 6], square) <= 0) * 0; /*Rooks*/
+			mapped_attacks |= (get_bit(Bitboards[4 + side * 6], square) > 0) * get_queen_attacks(square, blockers) + (get_bit(Bitboards[4 + side * 6], square) <= 0) * 0; /*Queens*/
+			mapped_attacks |= (get_bit(Bitboards[5 + side * 6], square) > 0) * King_Mask[square] + (get_bit(Bitboards[5 + side * 6], square) <= 0) * 0;}
+		return mapped_attacks;}
+
 	//castling 
 	//can castle kingside?
 	bool castle_kingside(int side){
 		//If king moved, set castle white or black to zero
-		if(Bitboards[K + side * 6] != castle_king_constants[side]){
-			(side == WHITE) ? Castle_White_Kingside = 0 : Castle_Black_Kingside = 0;
-			return 0;
-		}
 		//If that rook has moved, return 0;
-		if((Bitboards[3 + side * 6] & rook_positions[side]) == 0){
+		if((Bitboards[K + side * 6] != castle_king_constants[side]) || ((Bitboards[R + side * 6] & rook_positions[1 + side * 2])) == 0){
 			(side == WHITE) ? Castle_White_Kingside = 0 : Castle_Black_Kingside = 0;
 			return 0;
 		}
+		
 		//If there is a piece between the king and rook, return 0
-		if(castle_constants[side] & occupancies[BOTH]){
-			return 0;
-		}
 		//If King is in check or piece attacking castle squares, return 0
 		uint64_t attacks = attack_map(side ^ 1);
-		if((attacks & castle_king_constants[side]) || (attacks & castle_constants[side])){
+		if((attacks & castle_king_constants[side]) || (attacks & castle_constants[side * 2]) || (castle_constants[side] & occupancies[BOTH])){
+			return 0;
+		}
+		return 1;
+	}
+
+	//can castle queenside?
+	//literally duplicate of previous function for now.
+	bool castle_queenside(int side){
+		//If king moved, set castle white or black to zero
+		//If that rook has moved, return 0;
+		if((Bitboards[K + side * 6] != castle_king_constants[side]) || ((Bitboards[R + side * 6] & rook_positions[1 + side * 2])) == 0){
+			(side == WHITE) ? Castle_White_Queenside = 0 : Castle_Black_Queenside = 0;
+			return 0;
+		}
+		
+		//If there is a piece between the king and rook, return 0
+		//If King is in check or piece attacking castle squares, return 0
+		//make it 100% for queenside
+		uint64_t attacks = attack_map(side ^ 1);
+		if((attacks & castle_king_constants[side]) || (attacks & castle_constants[1 + side * 2]) || (castle_constants[1 + side * 2] & occupancies[BOTH])){
 			return 0;
 		}
 		return 1;
@@ -322,10 +484,10 @@ class Legal_Moves{
 
 	//En Passant. 'side' is the side looking for en passant
 	uint64_t en_passant(int side){
-		int target_square;
+		int targetsq;
 		uint64_t en_passant_attacks;
 		//if there is a pawn on the possible en passant rank
-		if((Bitboards[(side ^ 1) * 6] & en_passant_ranks[side])<1){
+		if((Bitboards[(side ^ 1) * 6] & en_passant_ranks[side]) < 1){
 			return 0;
 		}
 		//most recent move
@@ -334,26 +496,237 @@ class Legal_Moves{
 		if(most_recent_move & 0x200000){
 			//attempt to find en passant attacks
 			//target square
-			target_square = (most_recent_move & 0xfc0) >> 6;
-			//also shift target square to the square original side must attack to be considered en passant
-			target_square += (side == WHITE) * 8;
-			target_square -= (side == BLACK) * 8;
+			targetsq = (most_recent_move & 0xfc0) >> 6;
+			//also shift target square to the square that the original side must attack to be considered en passant
+			targetsq += (side == WHITE) * 8;
+			targetsq -= (side == BLACK) * 8;
 			//gets pawns with posssible en_passant attack
-			en_passant_attacks = Pawn_Attacks[side ^ 1] [target_square] & Bitboards[side * 6];
+			en_passant_attacks = Pawn_Attacks[side ^ 1] [targetsq] & Bitboards[side * 6];
 		} else {
 			return 0;
 		}
-	return (en_passant_attacks > 0) * (1ULL << target_square);
+	return (en_passant_attacks > 0) * (1ULL << targetsq);
+	}
+
+	bool legal_en_passant(int side, int source, int target){
+		//make copies of the affected bitboards by move
+		uint64_t WP = Bitboards[P];
+		uint64_t BP = Bitboards[p];
+		//make moves (shift and replace source sqare pawn to target square for side)
+		pop_bit(Bitboards[side * 6], source);
+		set_bit(Bitboards[side * 6], get_ls1b_index(en_passant(side)));
+		//remove opposing pawn that has been targeted
+		pop_bit(Bitboards[(side ^ 1) * 6], (target + ((side == WHITE) ? -8 : 8)));
+		update_occupancies();
+		if(square_attackers(get_ls1b_index(Bitboards[K + side * 6]), side ^ 1)){
+			//reset the bitboards
+			Bitboards[P] = WP;
+			Bitboards[p] = BP;
+			update_occupancies();
+			return false;
+		} else {
+			//reset the bitboards
+			Bitboards[P] = WP;
+			Bitboards[p] = BP;
+			update_occupancies();
+			return true;	
+		}
 	}
 
 	//Generate all legal moves for position
 	//All legal move generation except for en passant
-	void legal_moves(){
-		return 0;
+	//use Leorik as reference for generation method: 
+	//https://github.com/lithander/Leorik/blob/master/Leorik.Perft/PerftMoveGen.cs
+	void generate_moves(moves *move_list, bool side){
+		//initialize objects
+		double_pawn_push pawn;
+		Pins pin;
+		
+		//Set move counter to zero
+		move_list -> count = 0;
+		
+		//source and target squares
+		int sourcesq, targetsq;
+		
+		//Initialize a bunch of variables
+		uint64_t board, moves, square_attackers;
+
+		//side constant
+		const int stm = side * 6;
+		
+		//double check boolean
+		bool double_check;
+
+		//king square
+		int kingsq = get_ls1b_index(Bitboards[K + side * 6]);
+
+		//pinned pieces
+		uint64_t pinned = pin.absolute_pins(side, kingsq);		
+		
+		//The only possible replies to a double check are 	
+		//king moves, as both checking pieces cannot be 		
+		//captured or blocked at once.
+
+		uint64_t king_attacked_by = this -> square_attackers(kingsq, side ^ 1);
+
+		//capture move boolean
+		bool capture;
+
+		//pinmask
+		uint64_t pinmask;
+
+		//targets
+		uint64_t targets;
+
+		//checkmask
+		uint64_t checkmask = ~uint64_t(0);
+		
+		switch(count_bits(king_attacked_by)){
+			case 0: double_check = false; break;
+			case 1: double_check = false; checkmask = Rect_Lookup[kingsq][get_ls1b_index(king_attacked_by)] | king_attacked_by; break;
+			case 2: double_check = true; break;
+		}
+		if(double_check == false){
+			//go through correct 'side' bitboards
+			//King moves
+			for(uint64_t King = Bitboards[K + stm]; King != 0; King &= King - 1){
+				//get source square
+				sourcesq = get_ls1b_index(King);
+				//get targets for attacks
+				targets = King_Mask[sourcesq] & ~occupancies[side] & ~king_danger_squares(side ^ 1);
+				for(; targets != 0; targets &= targets - 1){
+					targetsq = get_ls1b_index(targets);
+					capture = ((get_bit(targets, targetsq) & occupancies[side ^ 1]) != 0);
+					add_move(move_list, encode_moves(sourcesq, targetsq, K + stm, 0, capture, 0, 0, 0));
+				}
+			}
+			//castling moves
+			if(castle_kingside(side)){
+				add_move(move_list, encode_moves(e1 + side * 56, g1 + side * 56, K + stm, 0, 0, 0, 0, 1));
+			}
+			if(castle_queenside(side)){
+				add_move(move_list, encode_moves(e1 + side * 56, c1 + side * 56, K + stm, 0, 0, 0, 0, 1));
+			}
+			
+			//Queen moves
+			for(uint64_t Queen = Bitboards[Q + stm]; Queen != 0; Queen &= Queen - 1){
+				//get source square
+				sourcesq = get_ls1b_index(Queen);
+				//get pinmask
+				pinmask = pin.masks[pin_direction[kingsq][(get_bit(Queen, sourcesq) & pinned) ? sourcesq : kingsq]][kingsq];
+				//get targets for attacks
+				targets = (get_queen_attacks(sourcesq, occupancies[BOTH]) & pinmask) & ~occupancies[side] & checkmask;
+				for(; targets != 0; targets &= targets - 1){
+					targetsq = get_ls1b_index(targets);
+					capture = ((get_bit(targets, targetsq) & occupancies[side ^ 1]) != 0);
+					add_move(move_list, encode_moves(sourcesq, targetsq, Q + stm, 0, capture, 0, 0, 0));
+				}
+			}
+			
+			//Rook moves
+			for(uint64_t Rook = Bitboards[R + stm]; Rook != 0; Rook &= Rook - 1){
+				//get source square
+				sourcesq = get_ls1b_index(Rook);
+				//get pinmask
+				pinmask = pin.masks[pin_direction[kingsq][(get_bit(Rook, sourcesq) & pinned) ? sourcesq : kingsq]][kingsq];
+				//get targets for attacks
+				targets = (get_rook_attacks(sourcesq, occupancies[BOTH]) & pinmask) & ~occupancies[side] & checkmask;
+				for(; targets != 0; targets &= targets - 1){
+					targetsq = get_ls1b_index(targets);
+					capture = ((get_bit(targets, targetsq) & occupancies[side ^ 1]) != 0);
+					add_move(move_list, encode_moves(sourcesq, targetsq, R + stm, 0, capture, 0, 0, 0));
+				}
+			}
+			
+			//Bishop moves
+			for(uint64_t Bishop = Bitboards[B + stm]; Bishop != 0; Bishop &= Bishop - 1){
+				//get source square
+				sourcesq = get_ls1b_index(Bishop);
+				//get pinmask
+				pinmask = pin.masks[pin_direction[kingsq][(get_bit(Bishop, sourcesq) & pinned) ? sourcesq : kingsq]][kingsq];
+				//get targets for attacks
+				targets = (get_bishop_attacks(sourcesq, occupancies[BOTH]) & pinmask) & ~occupancies[side] & checkmask;
+				for(; targets != 0; targets &= targets - 1){
+					targetsq = get_ls1b_index(targets);
+					capture = ((get_bit(targets, targetsq) & occupancies[side ^ 1]) != 0);
+					add_move(move_list, encode_moves(sourcesq, targetsq, B + stm, 0, capture, 0, 0, 0));
+				}
+			}
+			
+			//Knight moves
+			for(uint64_t Knight = Bitboards[N + stm]; Knight != 0; Knight &= Knight - 1){
+				//get source square
+				sourcesq = get_ls1b_index(Knight);
+				//get pinmask
+				pinmask = pin.masks[pin_direction[kingsq][(get_bit(Knight, sourcesq) & pinned) ? sourcesq : kingsq]][kingsq];
+				//get targets for attacks
+				targets = Knight_Attacks[sourcesq] & pinmask & ~occupancies[side] & checkmask;
+				for(; targets != 0; targets &= targets - 1){
+					targetsq = get_ls1b_index(targets);
+					capture = ((get_bit(targets, targetsq) & occupancies[side ^ 1]) != 0);
+					add_move(move_list, encode_moves(sourcesq, targetsq, N + stm, 0, capture, 0, 0, 0));
+				}
+			}
+
+			//Pawn moves
+			for(uint64_t Pawn = Bitboards[stm]; Pawn != 0; Pawn &= Pawn -1){
+				//get source square
+				sourcesq = get_ls1b_index(Pawn);
+				//get pinmask
+				pinmask = pin.masks[pin_direction[kingsq][(get_bit(Pawn, sourcesq) & pinned) ? sourcesq : kingsq]][kingsq];
+				targets = ((Pawn_Attacks[side][sourcesq] & occupancies[side ^ 1]) | (pawn_single_push[side][sourcesq] & ~occupancies[BOTH]) | pawn.double_pawn_push_on_the_fly(sourcesq, side)) & pinmask & checkmask;
+				for(; targets != 0; targets &= targets - 1){
+					targetsq = get_ls1b_index(targets);
+					capture = ((get_bit(targets, targetsq) & occupancies[side ^ 1]) != 0);
+					if(get_bit(targets, targetsq) & promotion_ranks[side]){
+						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, N, capture, 0, 0, 0));
+						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, B, capture, 0, 0, 0));
+						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, R, capture, 0, 0, 0));
+						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, Q, capture, 0, 0, 0));
+					}
+					add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, 0, capture, 0, 0, 0));
+					//en passant
+					if(Pawn_Attacks[side][sourcesq] & en_passant(side)){
+						targetsq = get_ls1b_index(Pawn_Attacks[side][sourcesq] & en_passant(side));
+						if(legal_en_passant(side, sourcesq, targetsq) == true){
+							add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, 0, 1, 0, 1, 0));
+						}
+					}
+				}
+			}
+		} else {
+			//Only return King moves
+			//King moves
+			for(uint64_t King = Bitboards[K + stm]; King != 0; King &= King - 1){
+				//get source square
+				sourcesq = get_ls1b_index(King);
+				//get targets for attacks
+				targets = King_Mask[sourcesq] & ~occupancies[side] & ~king_danger_squares(side ^ 1);
+				for(; targets != 0; targets &= targets - 1){
+					targetsq = get_ls1b_index(targets);
+					capture = ((get_bit(targets, targetsq) & occupancies[side ^ 1]) != 0);
+					add_move(move_list, encode_moves(sourcesq, targetsq, K + stm, 0, capture, 0, 0, 0));
+				}
+			}
+		}
 	}
 };
 
 inline void Initialize_Everything(){
+	ChessBoard Init;
+	//initialize Bitboard array (really ugly code)
+	Bitboards [0] = Init.Initialize(Board,'P');
+	Bitboards [1] = Init.Initialize(Board,'N');
+	Bitboards [2] = Init.Initialize(Board,'B');
+	Bitboards [3] = Init.Initialize(Board,'R');
+	Bitboards [4] = Init.Initialize(Board,'Q');
+	Bitboards [5] = Init.Initialize(Board,'K');
+	Bitboards [6] = Init.Initialize(Board,'p');
+	Bitboards [7] = Init.Initialize(Board,'n');
+	Bitboards [8] = Init.Initialize(Board,'b');
+	Bitboards [9] = Init.Initialize(Board,'r');
+	Bitboards[10] = Init.Initialize(Board,'q');
+	Bitboards[11] = Reverse(Init.Initialize(Board,'k'));
 	init_sliders_attacks(1);
 	init_sliders_attacks(0);
 	uint64_t bitboard;
@@ -363,4 +736,17 @@ inline void Initialize_Everything(){
     Pawn_Attacks[BLACK][square] = mask_Pawn_Attacks(BLACK, square);
 		//Knights
 		bitboard = 1ULL << square;
-		Knight_Attacks [square] = Knights(bitboard);}}
+		Knight_Attacks [square] = Knights(bitboard);
+		}
+	//pin directions
+	for(int sq1 = 0; sq1 < 64; sq1++){
+		for(int sq2 = 0; sq2 < 64; sq2++){
+			pin_direction[sq1][sq2] = direction(sq1, sq2);
+		}
+	}
+	//populate pawn push tables (gets target square)
+	for(int square = 0; square < 64; square++){
+		pawn_single_push [0] [square] = (square > 7 && square < 56) ? 1ULL << (square + 8) : 0;
+		pawn_single_push [1] [square] = (square > 7 && square < 56) ? 1ULL << (square - 8) : 0;
+	}
+}

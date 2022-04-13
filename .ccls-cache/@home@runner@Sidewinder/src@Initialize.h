@@ -5,14 +5,14 @@
 using std::string;
 
 //board
-char Board[64] = {' ',' ',' ','Q',' ',' ',' ',' ',
-  								' ',' ',' ','p',' ',' ',' ',' ',
-  								' ','Q',' ',' ',' ','Q',' ',' ',
-  								' ',' ','p',' ','p',' ',' ',' ',
-  								'Q','p',' ','k',' ','p','Q',' ',
-  								' ',' ','p','P','p',' ',' ',' ',
-  								' ',' ',' ',' ',' ','Q',' ',' ',
-  								'Q',' ',' ','Q',' ',' ',' ',' '};
+char Board[64] = {' ',' ',' ',' ',' ',' ',' ',' ',
+  								' ',' ',' ',' ',' ',' ',' ',' ',
+  								' ',' ',' ',' ',' ',' ',' ',' ',
+  								' ',' ',' ',' ','P','p',' ',' ',
+  								' ',' ',' ',' ','K',' ',' ',' ',
+  								' ',' ',' ',' ',' ',' ',' ',' ',
+  								' ',' ',' ',' ',' ',' ',' ',' ',
+  								' ',' ',' ',' ',' ',' ',' ',' '};
 
 //In which a1=0, h1=7, a8=56, and h8=63
 enum enumSquare {
@@ -25,30 +25,6 @@ enum enumSquare {
   a7, b7, c7, d7, e7, f7, g7, h7,
   a8, b8, c8, d8, e8, f8, g8, h8};
 
-
-
-//Bitboard variables initialized
-uint64_t WP;
-uint64_t WN;
-uint64_t WB;
-uint64_t WR;
-uint64_t WQ;
-uint64_t WK;
-uint64_t BP;
-uint64_t BN;
-uint64_t BB;
-uint64_t BR;
-uint64_t BQ;
-uint64_t BK;
-
-class ChessBoard {
-	private:
-	//converting all the stuff
-unsigned long long convert(int i){
-	i=63-i;
-	unsigned long long intermediate=(unsigned long long)floor(i/8+1)*8-i%8-1;
-	return intermediate;}
-
 //Reverse the LERBEF format to LERF for proper use (Dislaying purposes, not rotated biboards)
 uint64_t Reverse (uint64_t x) {
    const uint64_t k1 = 0x5555555555555555;
@@ -59,35 +35,27 @@ uint64_t Reverse (uint64_t x) {
    x = ((x >> 4) & k4) | ((x & k4) << 4);
    return x;}
 
+//declare bitboard list
+uint64_t Bitboards [12];
+
+class ChessBoard {
 	public:
 	//draw the board
 	void Board(){
         string chessboard[8][8]={};
-        WP=Reverse(WP);
-				WN=Reverse(WN);
-				WB=Reverse(WB);
-				WR=Reverse(WR);
-				WQ=Reverse(WQ);
-				WK=Reverse(WK);
-				BP=Reverse(BP);
-				BN=Reverse(BN);
-				BB=Reverse(BB);
-				BR=Reverse(BR);
-				BQ=Reverse(BQ);
-				BK=Reverse(BK);
 				for (int i=0;i<64;i++) {
-        	if (((BP>>i)&1)==1) {chessboard[i/8][i%8]="\u2659";}
-        	if (((BN>>i)&1)==1) {chessboard[i/8][i%8]="\u2658";}
-        	if (((BB>>i)&1)==1) {chessboard[i/8][i%8]="\u2657";}
-       	  if (((BR>>i)&1)==1) {chessboard[i/8][i%8]="\u2656";}
-        	if (((BQ>>i)&1)==1) {chessboard[i/8][i%8]="\u2655";}
-        	if (((BK>>i)&1)==1) {chessboard[i/8][i%8]="\u2654";}
-        	if (((WP>>i)&1)==1) {chessboard[i/8][i%8]="\u265F";}
-        	if (((WN>>i)&1)==1) {chessboard[i/8][i%8]="\u265E";}
-        	if (((WB>>i)&1)==1) {chessboard[i/8][i%8]="\u265D";}
-        	if (((WR>>i)&1)==1) {chessboard[i/8][i%8]="\u265C";}
-        	if (((WQ>>i)&1)==1) {chessboard[i/8][i%8]="\u265B";}
-        	if (((WK>>i)&1)==1) {chessboard[i/8][i%8]="\u265A";}}
+        	if (((Reverse(Bitboards[6])>>i)&1)==1) {chessboard[i/8][i%8]="\u2659";}
+        	if (((Reverse(Bitboards[7])>>i)&1)==1) {chessboard[i/8][i%8]="\u2658";}
+        	if (((Reverse(Bitboards[8])>>i)&1)==1) {chessboard[i/8][i%8]="\u2657";}
+       	  if (((Reverse(Bitboards[9])>>i)&1)==1) {chessboard[i/8][i%8]="\u2656";}
+        	if (((Reverse(Bitboards[10])>>i)&1)==1) {chessboard[i/8][i%8]="\u2655";}
+        	if (((Reverse(Bitboards[11])>>i)&1)==1) {chessboard[i/8][i%8]="\u2654";}
+        	if (((Reverse(Bitboards[0])>>i)&1)==1) {chessboard[i/8][i%8]="\u265F";}
+        	if (((Reverse(Bitboards[1])>>i)&1)==1) {chessboard[i/8][i%8]="\u265E";}
+        	if (((Reverse(Bitboards[2])>>i)&1)==1) {chessboard[i/8][i%8]="\u265D";}
+        	if ((Reverse((Bitboards[3])>>i)&1)==1) {chessboard[i/8][i%8]="\u265C";}
+        	if (((Reverse(Bitboards[4])>>i)&1)==1) {chessboard[i/8][i%8]="\u265B";}
+        	if (((Reverse(Bitboards[5])>>i)&1)==1) {chessboard[i/8][i%8]="\u265A";}}
 					for(int i=64; i>0;i--){
 						if(i%8==0 && i!=64){
 							std::cout<<"\n"<<floor(i/8)<<" ";
@@ -126,4 +94,3 @@ uint64_t Reverse (uint64_t x) {
 			Bit^=(1ull<<(63-i))*(chessboard[i]==type);}
 		return Reverse(Bit);}
 };
-						

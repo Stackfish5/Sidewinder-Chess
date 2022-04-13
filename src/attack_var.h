@@ -6,6 +6,9 @@
 //Pre-calculated (Side and square)
 uint64_t Pawn_Attacks [2] [64];
 
+//Pre-calculated pawn push tables (returns a target result)
+uint64_t pawn_single_push [2] [64];
+
 //King Attacks (created pre-generated attack table)
 const uint64_t King_Mask[64] = {0x302, 0x705, 0xe0a, 0x1c14, 0x3828, 
 0x7050, 0xe0a0, 0xc040, 0x30203, 0x70507, 0xe0a0e, 0x1c141c, 

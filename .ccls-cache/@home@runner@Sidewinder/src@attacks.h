@@ -70,5 +70,5 @@ uint64_t Knights(uint64_t Knights){
   uint64_t r2 = (Knights << 2) & (0xfcfcfcfcfcfcfcfc);
   uint64_t h1 = l1 | r1;
   uint64_t h2 = l2 | r2;
-  uint64_t To_Analysis = ((h1<<16) | (h1>>16) | (h2<<8) | (h2>>8));
-	return To_Analysis;}
+  uint64_t result = ((h1<<16) | (h1>>16) | (h2<<8) | (h2>>8));
+	return result;}
