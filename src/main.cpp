@@ -1,11 +1,13 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
-#include <cassert>  
+#include <cassert>
+#include <fstream>
+using std::ifstream;
 
-#include "Zobrist.h"
 #include "movegen.h"
 #include "timer.h"
+
 
 using std::to_string;
 using std::string;
@@ -40,6 +42,124 @@ using std::uint32_t;
 //pinned piece type, generate pseudo-legal moves and & them with the mask
 //to return result, legal moves for pinned piece!
 
+unsigned long long convert(int i){
+	i=63-i;
+	unsigned long long intermediate=(unsigned long long)floor(i/8+1)*8-i%8-1;
+	return intermediate;}
+
+//this isn't good
+void Parse_Fen(std::string FEN){
+	int counter = 0;
+	FEN.erase(remove(FEN.begin(), FEN.end(), '/'), FEN.end());
+	char reader[1024];
+	strcpy(reader, FEN.c_str());
+	//Board setup
+	//square number counter
+	int sq_counter = 0;
+	//Null bitboards
+	Bitboards[P] = 0;
+	Bitboards[N] = 0;
+	Bitboards[B] = 0;
+	Bitboards[R] = 0;
+	Bitboards[Q] = 0;
+	Bitboards[K] = 0;
+	Bitboards[p] = 0;
+	Bitboards[n] = 0;
+	Bitboards[b] = 0;
+	Bitboards[r] = 0;
+	Bitboards[q] = 0;
+	Bitboards[k] = 0;
+	while(FEN.substr(counter) != " "){
+		//if character isn't a number:
+		switch(reader[counter]){
+			//White Pawn
+			case 'P': 
+				Bitboards[P] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//Black Pawn
+			case 'p': 
+				Bitboards[p] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//White Knight
+			case 'N': 
+				Bitboards[N] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//Black Knight
+			case 'n': 
+				Bitboards[n] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//White Bishop
+			case 'B': 
+				Bitboards[B] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//Black Bishop
+			case 'b': 
+				Bitboards[b] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//White Rook
+			case 'R': 
+				Bitboards[R] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//Black Rook
+			case 'r': 
+				Bitboards[r] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//White Queen
+			case 'Q': 
+				Bitboards[Q] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//Black Rook
+			case 'q': 
+				Bitboards[q] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//White King
+			case 'K': 
+				Bitboards[K] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//Black King
+			case 'k': 
+				Bitboards[k] |= 1ULL << convert(sq_counter);
+				counter ++;
+				sq_counter ++;
+				break;
+			//Empty squares
+			case '1': counter ++; sq_counter += 1; break;
+			case '2': counter ++; sq_counter += 2; break;
+			case '3': counter ++; sq_counter += 3; break;
+			case '4': counter ++; sq_counter += 4; break;
+			case '5': counter ++; sq_counter += 5; break;
+			case '6': counter ++; sq_counter += 6; break;
+			case '7': counter ++; sq_counter += 7; break;
+			case '8': counter ++; sq_counter += 8; break;
+
+		}		
+
+		//
+	}
+}
+
 
 int main() {
 	//Initialize stuff (prep)
@@ -48,8 +168,13 @@ int main() {
 	Timer time;
 	double_pawn_push pawn;
 	Pins pin;
+	Zobrist hash;
 
 	Initialize_Everything();
+	
+
+	std::cout<<"hi";
+	Parse_Fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 	update_occupancies();
 	Print.Board();
 
@@ -61,19 +186,16 @@ int main() {
   // init move count
 	time.reset();
 	board.generate_moves(move_list, WHITE);
-	std::cout<<time.elapsed()<<"\n";
+	std::cout<<std::fixed<<time.elapsed()<<"\n";
 	board.print_move_list(move_list);
 	std::cout<<"\n"<<"done!"<<"\n";
-	std::cout<<"original pawn board:";
-	Print.Test_Board(Bitboards[p]);
-	pop_bit(Bitboards[(WHITE ^ 1) * 6], (f6 + ((WHITE == WHITE) ? -8 : 8)));
-	update_occupancies();
-	Print.Test_Board(board.square_attackers(e4, BLACK));
-	Print.Test_Board(Bitboards[p]);
-	std::cout<<board.legal_en_passant(WHITE, e5, h8);
-	uint64_t bob = 0x2000000000;
-	set_bit(Bitboards[P], f6);
-	Print.Test_Board(bob);}
+	hash.Initialize_Hash(Bitboards, WHITE, 1, 1, 1, 1, board.en_passant(WHITE));
+	std::cout<<std::hex<<hash.Key<<"\n";
+	std::string FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+	std::cout<<FEN;
+	FEN.erase(remove(FEN.begin(), FEN.end(), '/'), FEN.end());
+	
+}
 
 
 //random links:

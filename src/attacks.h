@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cmath>
+
 #include "attack_var.h"
 #include "occupancies.h"
 
@@ -18,8 +19,6 @@ uint64_t mask_Pawn_Attacks(int side, int square){
         if ((bitboard >> 9) & not_h_file) attacks |= (bitboard >> 9);}
     // return attack map
     return attacks;}
-
-
 
 //For bit-shifting stuff later on
 const int bishop_relevant_bits[64] = {
@@ -57,7 +56,6 @@ static inline uint64_t get_rook_attacks(int square, uint64_t occupancy){
     occupancy >>= 64 - rook_relevant_bits[square];
     // return rook attacks
     return Rook_Attacks[square][occupancy];}
-//End of borrowed code
 
 static inline uint64_t get_queen_attacks(int square, uint64_t occupancy){
     return get_rook_attacks(square, occupancy) | get_bishop_attacks(square, occupancy);}

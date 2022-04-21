@@ -5,14 +5,14 @@
 using std::string;
 
 //board
-char Board[64] = {' ',' ',' ',' ',' ',' ',' ',' ',
-  								' ',' ',' ',' ',' ',' ',' ',' ',
-  								' ',' ',' ',' ',' ',' ',' ',' ',
-  								' ',' ',' ',' ','P','p',' ',' ',
-  								' ',' ',' ',' ','K',' ',' ',' ',
-  								' ',' ',' ',' ',' ',' ',' ',' ',
-  								' ',' ',' ',' ',' ',' ',' ',' ',
-  								' ',' ',' ',' ',' ',' ',' ',' '};
+char Board[64] = {' ',' ',' ',' ',' ','Q',' ',' ',
+  								' ',' ',' ','Q',' ',' ',' ',' ',
+  								' ',' ',' ',' ',' ',' ','Q',' ',
+  								'Q',' ',' ',' ',' ',' ',' ',' ',
+  								' ',' ',' ',' ',' ',' ',' ','Q',
+  								' ','Q',' ',' ',' ',' ',' ',' ',
+  								' ',' ',' ',' ','Q',' ',' ',' ',
+  								' ',' ','Q',' ',' ',' ',' ','K'};
 
 //In which a1=0, h1=7, a8=56, and h8=63
 enum enumSquare {
@@ -53,9 +53,10 @@ class ChessBoard {
         	if (((Reverse(Bitboards[0])>>i)&1)==1) {chessboard[i/8][i%8]="\u265F";}
         	if (((Reverse(Bitboards[1])>>i)&1)==1) {chessboard[i/8][i%8]="\u265E";}
         	if (((Reverse(Bitboards[2])>>i)&1)==1) {chessboard[i/8][i%8]="\u265D";}
-        	if ((Reverse((Bitboards[3])>>i)&1)==1) {chessboard[i/8][i%8]="\u265C";}
+        	if (((Reverse(Bitboards[3])>>i)&1)==1) {chessboard[i/8][i%8]="\u265C";}
         	if (((Reverse(Bitboards[4])>>i)&1)==1) {chessboard[i/8][i%8]="\u265B";}
-        	if (((Reverse(Bitboards[5])>>i)&1)==1) {chessboard[i/8][i%8]="\u265A";}}
+        	if (((Reverse(Bitboards[5])>>i)&1)==1) {chessboard[i/8][i%8]="\u265A";}
+					}
 					for(int i=64; i>0;i--){
 						if(i%8==0 && i!=64){
 							std::cout<<"\n"<<floor(i/8)<<" ";

@@ -1,8 +1,11 @@
 #include <iostream>
 #include <cmath>
 #include <vector>
+#include <algorithm>
+#include <string.h>
 
 #include "attacks.h"
+#include "Hash.h"
 
 //Rectangular lookup tables
 uint64_t Rect_Lookup [64] [64]; //[sq1] [sq2]
@@ -55,13 +58,7 @@ void init_sliders_attacks(int bishop){
             int magic_index = (occupancy * RMagic[square]) >> (64 - rook_relevant_bits[square]);
             // init bishop attacks
             Rook_Attacks[square][magic_index] = rook_attacks_on_the_fly(square, occupancy);}}}
-
-	//rectangular lookup table for pins
-	for(int sq1=0; sq1<64; sq1++){
-		for(int sq2=0; sq2<64; sq2++){
-			Rect_Lookup [sq1] [sq2] = inBetween(sq1, sq2);
-		}
-	}}
+}
 
 enum Piece_Types {P, N, B, R, Q, K, p, n, b, r, q, k};
 
@@ -514,11 +511,11 @@ class Legal_Moves{
 		uint64_t BP = Bitboards[p];
 		//make moves (shift and replace source sqare pawn to target square for side)
 		pop_bit(Bitboards[side * 6], source);
-		set_bit(Bitboards[side * 6], get_ls1b_index(en_passant(side)));
+		set_bit(Bitboards[side * 6], target);
 		//remove opposing pawn that has been targeted
-		pop_bit(Bitboards[(side ^ 1) * 6], (target + ((side == WHITE) ? -8 : 8)));
+		(side == WHITE) ? pop_bit(Bitboards[(side ^ 1) * 6], (target - 8)) : pop_bit(Bitboards[(side ^ 1) * 6], (target + 8));
 		update_occupancies();
-		if(square_attackers(get_ls1b_index(Bitboards[K + side * 6]), side ^ 1)){
+		if(is_square_attacked(get_ls1b_index(Bitboards[K + side * 6]), side ^ 1)){
 			//reset the bitboards
 			Bitboards[P] = WP;
 			Bitboards[p] = BP;
@@ -547,9 +544,6 @@ class Legal_Moves{
 		
 		//source and target squares
 		int sourcesq, targetsq;
-		
-		//Initialize a bunch of variables
-		uint64_t board, moves, square_attackers;
 
 		//side constant
 		const int stm = side * 6;
@@ -560,6 +554,8 @@ class Legal_Moves{
 		//king square
 		int kingsq = get_ls1b_index(Bitboards[K + side * 6]);
 
+		std::vector <int> en_passant_targets;
+		
 		//pinned pieces
 		uint64_t pinned = pin.absolute_pins(side, kingsq);		
 		
@@ -679,21 +675,38 @@ class Legal_Moves{
 					targetsq = get_ls1b_index(targets);
 					capture = ((get_bit(targets, targetsq) & occupancies[side ^ 1]) != 0);
 					if(get_bit(targets, targetsq) & promotion_ranks[side]){
-						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, N, capture, 0, 0, 0));
-						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, B, capture, 0, 0, 0));
-						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, R, capture, 0, 0, 0));
-						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, Q, capture, 0, 0, 0));
-					}
-					add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, 0, capture, 0, 0, 0));
-					//en passant
-					if(Pawn_Attacks[side][sourcesq] & en_passant(side)){
-						targetsq = get_ls1b_index(Pawn_Attacks[side][sourcesq] & en_passant(side));
-						if(legal_en_passant(side, sourcesq, targetsq) == true){
-							add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, 0, 1, 0, 1, 0));
-						}
+						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, N + stm, capture, 0, 0, 0));
+						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, B + stm, capture, 0, 0, 0));
+						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, R + stm, capture, 0, 0, 0));
+						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, Q + stm, capture, 0, 0, 0));
+					} else{
+						//quiet pawn push
+						add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, 0, capture, 0, 0, 0));
 					}
 				}
+			}	
+
+			//en passant
+			//get target square index
+			targetsq = get_ls1b_index(en_passant(side));
+			//get potential target pawns
+			targets = Pawn_Attacks[side ^ 1][targetsq] & Bitboards[side * 6];
+			if(count_bits(targets) == 2){
+				sourcesq = get_ls1b_index(targets);
+				if(legal_en_passant(side, sourcesq, targetsq)){
+					add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, 0, 1, 0, 1, 0));
+				}
+				sourcesq = get_ms1b_index(targets);
+				if(legal_en_passant(side, sourcesq, targetsq)){
+					add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, 0, 1, 0, 1, 0));
+				}
+			} else if(count_bits(targets) == 1){
+				sourcesq = get_ls1b_index(targets);
+				if(legal_en_passant(side, sourcesq, targetsq)){
+					add_move(move_list, encode_moves(sourcesq, targetsq, P + stm, 0, 1, 0, 1, 0));
+				}
 			}
+			
 		} else {
 			//Only return King moves
 			//King moves
@@ -710,23 +723,125 @@ class Legal_Moves{
 			}
 		}
 	}
+
+	//50 move rule
+	int fifty_move_rule = 0;
+
+	//add clear comments in it
+	int push_move(int move, int move_flag){
+		Zobrist Hash;
+		if(!move_flag){
+			int source_square = get_move_source(move);
+      int target_square = get_move_target(move);
+      int piece = get_move_piece(move);
+      int promoted_piece = get_move_promoted(move);
+      int capture = get_move_capture(move);
+      int double_push = get_move_double(move);
+      int enpassant = get_move_enpassant(move);
+      int castling = get_move_castling(move);
+			//find piece side 0 is White pawn, 6 is Black pawn
+			int stm = ((int)floor(piece / 6) ^ 1) * 6;
+      //move the piece
+			pop_bit(Bitboards[piece], source_square);
+			set_bit(Bitboards[piece], target_square);
+			//update zobrist key
+			Hash.Key ^= Polyglot_Random_U64[piece * 64 + source_square];
+			Hash.Key ^= Polyglot_Random_U64[piece * 64 + target_square];
+			//reset 50 move counter if it is a pawn move
+			if(piece == P || piece == p){
+				fifty_move_rule = 0;
+			}
+			//increase 50 move counter
+			fifty_move_rule++;
+			if(capture){
+				
+				//scan for correct bitboards
+				for (int bb_piece = stm; bb_piece <= K + stm; bb_piece++){
+					if(get_bit(Bitboards[bb_piece], target_square)){
+						// remove it from corresponding bitboard
+            pop_bit(Bitboards[bb_piece], target_square);
+            // remove the piece from hash key
+            Hash.Key ^= Polyglot_Random_U64[bb_piece * 64 + target_square];
+            break;
+					}
+				}
+			}
+			if(promoted_piece){
+				//reset 50 move counter
+				fifty_move_rule = 0;
+				//pop pawn bitboard
+				pop_bit(Bitboards[piece], target_square);
+				Hash.Key ^= Polyglot_Random_U64[piece * 64 + target_square];
+				//update piece onto promoted bitboard
+				set_bit(Bitboards[promoted_piece], target_square);
+				Hash.Key ^= Polyglot_Random_U64[promoted_piece * 64 + target_square];
+			}
+			if(enpassant){
+				int removal_square = (stm/6 == WHITE) ? 
+														target_square - 8:
+														target_square + 8;
+				//remove victim pawn
+				pop_bit(Bitboards[((stm/6) ^ 1) * 6], removal_square);
+				Hash.Key ^= Polyglot_Random_U64[((stm/6) ^ 1) * 6 * 64 + removal_square];
+			}
+			uint64_t en_passant_attack = en_passant(stm / 6);
+			if(en_passant_attack){
+				Hash.Key ^= Polyglot_Random_U64[772 + get_ls1b_index(en_passant_attack) & 7];
+			}
+			if(double_push){
+				en_passant_attack = en_passant((stm / 6) ^ 1);
+				if(en_passant_attack){
+					Hash.Key ^= Polyglot_Random_U64[772 + get_ls1b_index(en_passant_attack) & 7];
+				}
+			}
+			if(castling){
+				if(target_square == (g1 + (stm == 6) * 56)){
+					pop_bit(Bitboards[R + stm], h1 + (stm == 6) * 56);
+          set_bit(Bitboards[R + stm], f1 + (stm == 6) * 56);
+					Hash.Key ^= Polyglot_Random_U64[(R + stm) * 64 + (h1 + (stm == 6) * 56)];
+					Hash.Key ^= Polyglot_Random_U64[(R + stm) * 64 + (f1 + (stm == 6) * 56)];
+					//reset castling rights
+					Castle_White_Kingside = 0;
+					Castle_White_Queenside = 0;
+					Castle_Black_Kingside = 0;
+					Castle_Black_Queenside = 0;
+				}
+
+				if(target_square == (c1 + (stm == 6) * 56)){
+					pop_bit(Bitboards[R + stm], a1 + (stm == 6) * 56);
+          set_bit(Bitboards[R + stm], d1 + (stm == 6) * 56);
+					Hash.Key ^= Polyglot_Random_U64[(R + stm) * 64 + (a1 + (stm == 6) * 56)];
+					Hash.Key ^= Polyglot_Random_U64[(R + stm) * 64 + (d1 + (stm == 6) * 56)];
+					//reset castling rights
+					Castle_White_Kingside = 0;
+					Castle_White_Queenside = 0;
+					Castle_Black_Kingside = 0;
+					Castle_Black_Queenside = 0;
+				}
+			}
+			//update occupancies
+			update_occupancies();
+			moves move_list[1];
+			
+		}
+	}
 };
 
 inline void Initialize_Everything(){
 	ChessBoard Init;
 	//initialize Bitboard array (really ugly code)
-	Bitboards [0] = Init.Initialize(Board,'P');
-	Bitboards [1] = Init.Initialize(Board,'N');
-	Bitboards [2] = Init.Initialize(Board,'B');
-	Bitboards [3] = Init.Initialize(Board,'R');
-	Bitboards [4] = Init.Initialize(Board,'Q');
-	Bitboards [5] = Init.Initialize(Board,'K');
-	Bitboards [6] = Init.Initialize(Board,'p');
-	Bitboards [7] = Init.Initialize(Board,'n');
-	Bitboards [8] = Init.Initialize(Board,'b');
-	Bitboards [9] = Init.Initialize(Board,'r');
-	Bitboards[10] = Init.Initialize(Board,'q');
-	Bitboards[11] = Reverse(Init.Initialize(Board,'k'));
+	Bitboards [P] = Init.Initialize(Board,'P');
+	Bitboards [N] = Init.Initialize(Board,'N');
+	Bitboards [B] = Init.Initialize(Board,'B');
+	Bitboards [R] = Init.Initialize(Board,'R');
+	Bitboards [Q] = Init.Initialize(Board,'Q');
+	Bitboards [K] = Init.Initialize(Board,'K');
+	Bitboards [p] = Init.Initialize(Board,'p');
+	Bitboards [n] = Init.Initialize(Board,'n');
+	Bitboards [b] = Init.Initialize(Board,'b');
+	Bitboards [r] = Init.Initialize(Board,'r');
+	Bitboards [q] = Init.Initialize(Board,'q');
+	Bitboards [k] = Init.Initialize(Board,'k');
 	init_sliders_attacks(1);
 	init_sliders_attacks(0);
 	uint64_t bitboard;
@@ -748,5 +863,11 @@ inline void Initialize_Everything(){
 	for(int square = 0; square < 64; square++){
 		pawn_single_push [0] [square] = (square > 7 && square < 56) ? 1ULL << (square + 8) : 0;
 		pawn_single_push [1] [square] = (square > 7 && square < 56) ? 1ULL << (square - 8) : 0;
+	}
+	//rectangular lookup table for pins
+	for(int sq1=0; sq1<64; sq1++){
+		for(int sq2=0; sq2<64; sq2++){
+			Rect_Lookup [sq1] [sq2] = inBetween(sq1, sq2);
+		}
 	}
 }
